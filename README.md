@@ -5,7 +5,48 @@ sfPropelORMPlugin
 
 Replaces symfony's core Propel plugin by the latest version of Propel, in branch 1.6.
 
-## Installation
+## Installation
+
+### The Composer way
+
+Add the require to your composer.json. It's oddly named but like this Composer's symfony1 installer camelcases it correctly.
+Composer will install it into your project's plugins directory automatically, and add the requirements.
+
+    {
+        "config": {
+            "vendor-dir": "lib/vendor"
+        },
+        "require": {
+            "propel/sf-propel-o-r-m-plugin": "dev-master"
+        }
+    }
+
+Of course, don't forget to add Composer's autoloader to your ProjectConfiguration:
+
+``` php
+// config/ProjectConfiguration.class.php
+
+require __DIR__ .'/../lib/vendor/autoload.php';
+
+require_once dirname(__FILE__) .'/../lib/vendor/symfony/lib/autoload/sfCoreAutoload.class.php';
+sfCoreAutoload::register();
+
+class ProjectConfiguration extends sfProjectConfiguration
+{
+    public function setup()
+    {
+        $this->enablePlugins(array(
+            'sfPropelORMPlugin',
+            ...
+        ));
+
+        // mandatory because of the Composer vendor directory naming scheme
+        sfConfig::set('sf_phing_path', sfConfig::get('sf_lib_dir') .'/vendor/phing/phing');
+        sfConfig::set('sf_propel_path', sfConfig::get('sf_lib_dir') .'/vendor/propel/propel1');
+    }
+}
+```
+
 
 ### The Git way
 
@@ -26,16 +67,17 @@ As both Phing and Propel libraries are bundled with the plugin, you have to init
 
 Install the plugin via the subversion repository:
 
-    svn checkout http://svn.github.com/propelorm/sfPropelORMPlugin.git plugins/sfPropelORMPlugin
+    svn checkout https://github.com/propelorm/sfPropelORMPlugin/trunk plugins/sfPropelORMPlugin
 
 Install `Phing` and `Propel`:
 
     svn checkout http://phing.mirror.svn.symfony-project.com/tags/2.3.3/classes/phing lib/vendor/phing
-    svn checkout http://svn.github.com/propelorm/Propel.git lib/vendor/propel
+    svn checkout https://github.com/propelorm/Propel/tags/1.6.5 lib/vendor/propel
 
 ### Final step
 
-Disable the core Propel plugin and enable the `sfPropelORMPlugin` instead:
+Disable the core Propel plugin and enable the `sfPropelORMPlugin` instead.  Also, change the location for
+the Propel and Phing libs.
 
 ``` php
 // config/ProjectConfiguration.class.php
@@ -44,9 +86,10 @@ class ProjectConfiguration extends sfProjectConfiguration
 {
   public function setup()
   {
-    // If you're following the SVN way, uncomment the next two lines
-    //sfConfig::set('sf_phing_path', sfConfig::get('sf_root_dir').'/lib/vendor/phing');
-    //sfConfig::set('sf_propel_path', sfConfig::get('sf_root_dir').'/lib/vendor/propel');
+    //setup the location for our phing and propel libs
+    sfConfig::set('sf_phing_path', sfConfig::get('sf_root_dir').'/plugins/sfPropelORMPlugin/lib/vendor/phing/');
+    sfConfig::set('sf_propel_path', sfConfig::get('sf_root_dir').'/plugins/sfPropelORMPlugin/lib/vendor/propel/');
+    sfConfig::set('sf_propel_generator_path', sfConfig::get('sf_root_dir').'/plugins/sfPropelORMPlugin/lib/vendor/propel/generator/lib/');
 
     $this->enablePlugins('sfPropelORMPlugin');
   }
@@ -247,4 +290,27 @@ public function executeShow(sfWebRequest $request)
     // using sfPropelORMRoute with 'Author' as model
     $this->author = $this->getRoute()->getAuthor();
 }
+```
+
+A new option has been added to both `sfPropelORMRoute` and `sfPropelORMRouteCollection`, the `connection` option allows to set a specific Propel connection to use.
+Examples:
+
+``` yaml
+author_show:
+  url:     /author/:id
+  class:   sfPropelORMRoute
+  param:   { module: myModule, action: show }
+  options: { model: Author, type: object, connection: my_connection }
+```
+
+``` yaml
+author:
+    class: sfPropelORMRouteCollection
+    options:
+    model:                Author
+    module:               author
+    prefix_path:          /author
+    column:               id
+    connection:           my_connection
+    with_wildcard_routes: true
 ```

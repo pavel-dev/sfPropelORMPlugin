@@ -26,6 +26,20 @@ class sfPropelData extends sfData
     $formatter      = null;
 
   /**
+   * @var int The cache duration
+   */
+  protected $cacheKeepDuration;
+
+  public function __construct($cacheKeepDuration = 7200)
+  {
+    $this->cache = new sfFileCache(array(
+      'cache_dir' => sfConfig::get('sf_cache_dir')
+    ));
+
+    $this->cacheKeepDuration = $cacheKeepDuration;
+  }
+
+  /**
    * Initializes the sfPropelData instance.
    *
    * @param sfEventDispatcher $dispatcher  A sfEventDispatcher instance
@@ -210,7 +224,9 @@ class sfPropelData extends sfData
         // save the object for future reference
         if (method_exists($obj, 'getPrimaryKey'))
         {
-          $this->object_references[$class.'_'.$key] = $obj;
+          $peer = constant($class.'::PEER');
+          $class_key = constant($peer.'::OM_CLASS');
+          $this->object_references[$class_key.'_'.$key] = $obj;
         }
       }
     }
@@ -313,23 +329,34 @@ class sfPropelData extends sfData
   }
 
   /**
-   * Loads all map builders.
+   * Loads all map builders for a given connection name
+   *
+   * Use sfFileCache to cache propel databaseMap
    *
    * @throws sfException If the class cannot be found
    */
   protected function loadMapBuilders($connectionName)
   {
-    $dbMap = Propel::getDatabaseMap();
-    $files = sfFinder::type('file')->name('*TableMap.php')->in(sfProjectConfiguration::getActive()->getModelDirs());
-    foreach ($files as $file)
+    $cacheKey = 'dbMap-' . $connectionName;
+
+    if(!$dbMap = $this->cache->get($cacheKey))
     {
-      $omClass = basename($file, 'TableMap.php');
-      if (class_exists($omClass) && is_subclass_of($omClass, 'BaseObject') && constant($omClass.'Peer::DATABASE_NAME') == $connectionName)
+      $dbMap = Propel::getDatabaseMap();
+      $files = sfFinder::type('file')->name('*TableMap.php')->in(sfProjectConfiguration::getActive()->getModelDirs());
+      foreach ($files as $file)
       {
-        $tableMapClass = basename($file, '.php');
-        $dbMap->addTableFromMapClass($tableMapClass);
+        $omClass = basename($file, 'TableMap.php');
+        if (class_exists($omClass) && is_subclass_of($omClass, 'BaseObject') && constant($omClass.'Peer::DATABASE_NAME') == $connectionName)
+        {
+          $tableMapClass = basename($file, '.php');
+          $dbMap->addTableFromMapClass($tableMapClass);
+        }
       }
+
+      $dbMap = serialize($dbMap);
+      $this->cache->set($cacheKey, $dbMap, $this->cacheKeepDuration);
     }
+    Propel::setDatabaseMap($connectionName, unserialize($dbMap));
   }
 
   /**

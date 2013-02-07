@@ -308,3 +308,23 @@ try {
 } catch (InvalidArgumentException $e) {
     $b->test()->pass('The book form shoud not has sale_list field because it is not a many to many relation');
 }
+
+$form = new SellerForm();
+$b->test()->isa_ok($form->getWidget('extra_seller_list'), 'sfWidgetFormPropelChoice', 'The Seller form should have a sfWidgetFormPropelChoice of extras when there is a isCrossRef on a middle table');
+
+$many = new Many();
+$many2 = new Many();
+$tooMany = new TooMany();
+$tooMany->setManyRelatedByManyfkCrossId($many);
+$tooMany->setManyRelatedByManyfkId($many2);
+$many->save();
+$form = new ManyForm($many);
+$b->test()->isa_ok($form->getWidget('too_many_list'), 'sfWidgetFormPropelChoice', 'The Many form should have a sfWidgetFormPropelChoice of Many when there is a isCrossRef on a middle table');
+
+try {
+    // PHP Fatal if it fail
+    $form->updateDefaultsFromObject();
+    $b->test()->pass('The many to many generated form update opject normaly');
+} catch (Exception $e) {
+    $b->test()->fail('There is an issue with the many to many generated form');
+}
